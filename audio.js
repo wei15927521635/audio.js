@@ -1,316 +1,15 @@
 /// <reference path="jquery.all.js" />
 (function (window, undefined) {
     "use strict";
-    //Node.js中闭包外部this并非global eg:(function(g){})(this); //this not global
-    //严格模式下this不指向全局变量
-    var GLOBAL = typeof global == "object" ? global : window,
 
-        toString = Object.prototype.toString,
-        has = Object.prototype.hasOwnProperty,
-        slice = Array.prototype.slice,
-
-        html = document.documentElement,
-        body = document.body,
-        is_quirk_mode = document.compatMode === "BackCompat",
-        root = is_quirk_mode ? body : html,
-        event = {},
+    var makeArray = Q.makeArray,
+        extend = Q.extend,
+        fire = Q.fire,
+        E = Q.event,
+        createEle = Q.createEle,
+        factory = Q.factory,
+        view = Q.view,
         store = Q.store;
-
-
-    //严格模式与window识别检测
-    function detect_strict_mode() {
-        var f = function (arg) {
-            arguments[0] = 1;
-
-            return arg != arguments[0];
-        };
-
-        return f(0);
-    }
-
-    //是否严格模式
-    var is_strict_mode = detect_strict_mode(),
-        is_window_mode = GLOBAL == GLOBAL.window;
-
-
-    //页面视图
-    var view = {
-        //获取可用宽高
-        getSize: function () {
-            return { width: root.clientWidth, height: root.clientHeight };
-        },
-        //获取可用宽度
-        getWidth: function () {
-            return root.clientWidth;
-        },
-        //获取可用高度
-        getHeight: function () {
-            return root.clientHeight;
-        },
-        //获取页面宽度(包括滚动条)
-        getScrollWidth: function () {
-            //fix webkit bug:document.documentElement.scrollWidth等不能准确识别
-            return Math.max(html.scrollWidth, body.scrollWidth);
-        },
-        //获取页面高度(包括滚动条)
-        getScrollHeight: function () {
-            //fix webkit bug
-            return Math.max(html.scrollHeight, body.scrollHeight);
-        },
-        //获取左边的滚动距离
-        getScrollLeft: function () {
-            //fix webkit bug
-            return html.scrollLeft || body.scrollLeft;
-        },
-        //获取上边的滚动距离
-        getScrollTop: function () {
-            //fix webkit bug
-            return html.scrollTop || body.scrollTop;
-        }
-    };
-    function isFunc(fn){
-        return toString.call(fn) === "[object Function]";
-    }
-    function isObject(obj){
-        return obj&&toString.call(obj) === "[object Object]";
-    }
-    //检测是否为数组
-    function isArray(obj) {
-        return toString.call(obj) === "[object Array]";
-    }
-    //配置语言
-    function setLang(langs) {
-        extend(LANG, langs, true);
-    }
-
-    //触发指定函数,如果函数不存在,则不触发 eg:fire(fn,this,arg1,arg2)
-    function fire(fn, bind) {
-        if (fn != undefined) return fn.apply(bind, slice.call(arguments, 2));
-    }
-    function getType(obj) {
-        if (obj == undefined) return "" + obj;
-
-        //内置函数,性能最好 (注意：safari querySelectorAll返回值类型为function)
-        if (typeof obj !== "object" && typeof obj !== "function") return typeof obj;
-
-        //非window模式(Node)下禁用以下检测
-        if (is_window_mode) {
-            if (typeof obj.nodeType === "number") return "node";
-
-            if (typeof obj.length === "number") {
-                //严格模式禁止使用 arguments.callee,调用会报错
-                //IE9+等使用 toString.call 会返回 [object Arguments],此为兼容低版本IE
-                if (!is_strict_mode && obj.callee) return "arguments";
-
-                //IE9+等使用 toString.call 会返回 [object Window],此为兼容低版本IE
-                if (obj == obj.window) return "window";
-
-                //document.getElementsByTagName("*") => HTMLCollection
-                //document.querySelectorAll("*")     => NodeList
-                //此处统一为 list
-                if (obj.item) return "list";
-            }
-        }
-
-        //在某些最新的浏览器中(IE11、Firefox、Chrome)性能与hash读取差不多 eg: return class2type[toString.call(obj)];
-        return toString.call(obj).slice(8, -1).toLowerCase();
-    }
-    //将 NodeList 转为 Array
-    var makeArrayNode = (function () {
-        try {
-            slice.call(document.documentElement.childNodes);
-
-            return function (obj, from) {
-                return slice.call(obj, from);
-            }
-        } catch (e) {
-            return toArray;
-        }
-    })();
-
-    //将类数组对象转为数组,若对象不存在,则返回空数组
-    function makeArray(obj, from) {
-        if (obj == undefined) return [];
-
-        switch (getType(obj)) {
-            case "array": return from ? obj.slice(from) : obj;
-            case "list": return makeArrayNode(obj, from);
-            case "arguments": return slice.call(obj, from);
-        }
-
-        return [obj];
-    }
-    //检测是否为数组或类数组
-    function isArrayLike(obj) {
-        var type = getType(obj);
-        return type == "array" || type == "list" || type == "arguments";
-    }
-
-    //工厂函数
-    function factory(init, Super) {
-        if (Super && isFunc(Super)) {
-            var F = function () { };
-            F.prototype = Super.prototype;
-
-            init.prototype = new F();
-        }
-
-        var obj = init;
-
-        obj.constructor = factory;
-        obj.prototype.constructor = obj;
-
-        //prototype扩展
-        obj.extend = function (source, forced) {
-            extend(this.prototype, source, forced);
-        };
-
-        return obj;
-    };
-    //扩展对象
-    //forced:是否强制扩展
-    function extend(destination, source, forced) {
-        if (!destination || !source) return destination;
-
-        for (var key in source) {
-            if (key == undefined || !has.call(source, key)) continue;
-
-            if (forced || destination[key] === undefined) destination[key] = source[key];
-        }
-        return destination;
-    }
-
-    //创建元素
-    function createEle(tagName, className, html) {
-        var el = document.createElement(tagName);
-        if (className) el.className = className;
-        if (html) el.innerHTML = html;
-
-        return el;
-    }
-    //将对象数组转换为键值对
-    //propKey:对象中作为键的属性
-    //propValue:对象中作为值的属性,若为空,则值为对象本身;若为true,则给对象添加index属性,值为对象在数组中的索引
-    function toObjectMap(list,propKey,propValue){
-        if(!list) return;
-        var map = {}, isBuildIndex = false;
-        if (propValue === true) {
-            isBuildIndex = propValue;
-            propValue = undefined;
-        }
-
-        for (var i = 0, len = list.length; i < len; i++) {
-            var obj = list[i];
-            if (!obj || typeof obj != "object") continue;
-
-            if (isBuildIndex) obj.index = i;
-
-            map[obj[propKey]] = propValue ? obj[propValue] : obj;
-        }
-
-        return map;
-    }
-
-    var SUPPORT_W3C_EVENT = !!document.addEventListener;
-
-    function stop_event(event, isPreventDefault, isStopPropagation) {
-        var e = new jQuery.Event(event);
-        if (isPreventDefault !== false) e.preventDefault();
-        if (isStopPropagation !== false) e.stopPropagation();
-    }
-
-    jQuery.Event.prototype.stop = function () {
-        stop_event(this);
-    };
-
-    function addEvent(ele, type, fn) {
-        if (SUPPORT_W3C_EVENT) ele.addEventListener(type, fn, false);
-        else ele.attachEvent("on" + type, fn);  //注意:fn的this并不指向ele
-    }
-
-    //移除DOM事件
-    function removeEvent(ele, type, fn) {
-        if (SUPPORT_W3C_EVENT) ele.removeEventListener(type, fn, false);
-        else ele.detachEvent("on" + type, fn);
-    }
-    //添加事件
-    function add_event(ele, type, selector, fn, once, stops) {
-        var handle = fn;
-
-        if (once) {
-            handle = function (e) {
-                fn.call(this, e);
-
-                $(ele).off(type, selector, handle);
-            };
-        }
-
-        $(ele).on(type, selector, handle);
-
-        if (!once) stops.push([ele, type, handle, selector]);
-    }
-
-    function add_events(elements, types, selector, handle, once) {
-
-        if (typeof types == "string") {
-            types = types.split(' ');
-
-            if (isFunc(selector)) {
-                once = once || handle;
-                handle = selector;
-                selector = undefined;
-            }
-        } else {
-            if (selector === true || handle === true) once = true;
-            if (selector === true) selector = undefined;
-        }
-
-        var stops = []; 
-        makeArray(elements).forEach(function (ele) {
-            if (isArrayLike(types)) {
-                makeArray(types).forEach(function (type) {
-
-                    add_event(ele, type, selector, handle, once, stops);
-                });
-            } else if (isObject(types)) {
-
-                Object.forEach(types, function (type, handle) {
-                    add_event(ele, type, selector, handle, once, stops);
-                });
-            }
-        });
-
-        //返回移除事件api
-        return {
-            es: stops,
-
-            off: function (types, selector) {
-                remove_events(stops, types, selector);
-            }
-        };
-    }
-
-    //批量移除事件
-    //es:事件句柄对象列表  eg:es => [[ele, type, handle, selector],...]
-    function remove_events(es, types, selector) {
-        es.forEach(function (s) {
-            $(s[0]).off(s[1], s[3], s[2]);
-        });
-    }
-    //批量添加事件,执行一次后取消
-    function add_events_one(elements, types, selector, handle) {
-        return add_events(elements, types, selector, handler, true);
-    }
-    extend(event,{
-        fix: function (e) {
-            return new jQuery.Event(e);
-        },
-        stop: stop_event,
-        addEvent:addEvent,
-        removeEvent:removeEvent,
-        add:add_events
-    })
-
 
     var LANG = {
         play: "播放",
@@ -327,13 +26,17 @@
         close: "关闭"
     };
 
+    //配置语言
+    function setLang(langs) {
+        extend(LANG, langs, true);
+    }
+
     var music_data = [],
         music_data_map = {},
         music_default = [],
         data_map = {},
         my_index = 0,
-        video_volume,
-        E = event;
+        video_volume;
 
     function audio_player(init) {
         this.es_ = [];
@@ -409,6 +112,7 @@
                 var x = self.get('#my-audio');
                 if (!x) return;
                 if (x.ended) {
+                    // video_volume = x.volume;
                     my_index = parseInt(my_index) + 1;
                     if (my_index >= music_data.length) my_index = 0;
                     self.draw({ data: data_map[my_index] });
@@ -497,8 +201,7 @@
                 data1 = ops.data1,//默认歌单
                 ext = ['.mp3', '.ogg'],//支持播放格式
                 Abox,
-                index = 0,
-                sizeWidth = ops.width || '343px';
+                index = 0;
 
             self.ops = ops;
             self.callback = ops.callback;
@@ -537,7 +240,7 @@
                 '<div class="audio-text"></div>' +
                 '<style>' +
                     //'body.v-mydoc {position: relative;}'+
-                    '.audio-wrap{position: absolute;z-index: 2;' + (view.getWidth() < 760 ? 'bottom:2px;margin-right:-185px;' : 'bottom:2px;') + 'right:' + (view.getWidth() < 760 ? '50%' : '5px') + ';width:'+sizeWidth+';}' +
+                    '.audio-wrap{position: absolute;z-index: 2;' + (view.getWidth() < 760 ? 'bottom:2px;margin-right:-185px;' : 'bottom:2px;') + 'right:' + (view.getWidth() < 760 ? '50%' : '5px') + ';width:343px;}' +
                     '.audio-mp3{width:350px;height:28px;position:relative;}' +
                     '.audio-mp3 .c{height:100%;float:left;line-height: 28px;}' +
                     '.audio-mp3 .content{width:150px;height:100%;background:' + background + ';overflow:hidden;}' +//
@@ -568,7 +271,7 @@
 
             Abox = createEle('div', 'audio-wrap', html);
 
-            body.appendChild(Abox);
+            Q.body.appendChild(Abox);
 
             self.box = Abox;
             self._draw({ data1: music_data, data2: music_default });
@@ -578,6 +281,7 @@
                 music_data_map = {};
                 self.remove();
             });
+
             self.on('click', '.song-name', function () {
                 var audio_text = self.find('.audio-text', Abox);
 
@@ -691,19 +395,19 @@
                 var clientX = e.clientX,//鼠标点击位置
                     volume = clientX - self.box.offsetLeft - this.parentNode.offsetLeft,
                     a = document.getElementById('my-audio');
-
+                    console.log(volume)
                 self.find('.volume-btn',Abox).width(volume+'px');
                 self.find('.volume-num',Abox).html(volume); 
                 a.volume = volume/100;
                 video_volume =  volume/100;     
             }).on('click', '.add', function () {
-                if(!url) return alert('未扫描到歌单！！！');
+                if(!url) return;
                 var api = Q.api,
                     sid = store.get('sid') || store.get('isid'),
-                    login_id = store.get('uid') || store.get('iuid');
+                    login_id = store.get('uid') || store.get('iuid'),
 
                     urls = api.HOST_WEBAPI + url + (Q.isPhone(login_id) ? '&own=1' : '') + '&ext=' + encodeURIComponent(ext.join(','));
-                    
+
                 var el = document.getElementById('my-audio');
 
                 $.ajax({
@@ -733,6 +437,15 @@
                 })
                 return false;
             });
+
+            // document.oncontextmenu = function(){return false};
+            // document.onclick = function(){
+            //     var table = self.find('.audio-text',Abox);
+            //     if(table[0].className == "audio-text active"){
+            //         table.removeClass('active');
+            //         table.hide();
+            //     }
+            // }
         });
     }
 
