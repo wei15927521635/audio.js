@@ -13,11 +13,7 @@
         body = document.body,
         is_quirk_mode = document.compatMode === "BackCompat",
         root = is_quirk_mode ? body : html,
-
-        // makeArray = Q.makeArray,
-        // fire = Q.fire,
         event = {},
-        // view = Q.view,
         store = Q.store;
 
 
@@ -91,8 +87,6 @@
     function fire(fn, bind) {
         if (fn != undefined) return fn.apply(bind, slice.call(arguments, 2));
     }
-
-
     function getType(obj) {
         if (obj == undefined) return "" + obj;
 
@@ -415,7 +409,6 @@
                 var x = self.get('#my-audio');
                 if (!x) return;
                 if (x.ended) {
-                    // video_volume = x.volume;
                     my_index = parseInt(my_index) + 1;
                     if (my_index >= music_data.length) my_index = 0;
                     self.draw({ data: data_map[my_index] });
