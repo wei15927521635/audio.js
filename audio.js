@@ -228,7 +228,6 @@
                     '<div class="c m volume" title="' + LANG.volume + '">'+
                         '<div class="ico"></div>'+
                     '</div>' +
-                    '<div class="c m add" title="' + LANG.scan_song + '">+</div>' +
                     '<div class="c m x-close" title="' + LANG.close + '">X</div>' +
                     '<div class="volume-progress hide" title="'+LANG.volume+'">'+
                         '<div class="progress-warp">'+
@@ -239,9 +238,8 @@
                 '</div>' +
                 '<div class="audio-text"></div>' +
                 '<style>' +
-                    //'body.v-mydoc {position: relative;}'+
-                    '.audio-wrap{position: absolute;z-index: 2;' + (view.getWidth() < 760 ? 'bottom:2px;margin-right:-185px;' : 'bottom:2px;') + 'right:' + (view.getWidth() < 760 ? '50%' : '5px') + ';width:343px;}' +
-                    '.audio-mp3{width:350px;height:28px;position:relative;}' +
+                    '.audio-wrap{position: absolute;z-index: 2;' + (view.getWidth() < 760 ? 'bottom:2px;margin-right:-185px;' : 'bottom:2px;') + 'right:' + (view.getWidth() < 760 ? '50%' : '5px') + ';width:310px;}' +
+                    '.audio-mp3{width:310px;height:28px;position:relative;}' +
                     '.audio-mp3 .c{height:100%;float:left;line-height: 28px;}' +
                     '.audio-mp3 .content{width:150px;height:100%;background:' + background + ';overflow:hidden;}' +//
                     '.audio-mp3 .m{background: ' + background + ';color:#fff;cursor: pointer;text-align: center;width:30px;}' +
@@ -250,7 +248,6 @@
                     '.audio-mp3 .song-name .ico,.volume .ico{width:20px;height:20px;margin:7px auto 0;}' +
                     '.audio-mp3 .song-name .ico{background-image:url(images/player.png);background-position:3px -195px;background-repeat:no-repeat;background-size:70px;}' +
                     '.audio-mp3 .volume .ico{background-image:url(images/player.png);background-position:3px -96.5px;background-repeat:no-repeat;background-size:90px;}'+
-                    // '.audio-mp3 .quiet .ico{margin:7px auto 0;width:15px;height:15px;background-image:url(images/player.png);background-position:0.5px -109.5px;background-repeat:no-repeat;background-size:80px;}'+
                     '.audio-mp3 .abtn1{float:left;width:24px;height:24px;color:#fff;margin-top:2px;margin-left:2px;line-height:24px;text-align:center;}' +
                     '.audio-mp3 .btnPlay{width:20px;height:20px;margin-top:3px;cursor:pointer;background-image:url(images/player.png);background-position:5px 4px;background-repeat:no-repeat;background-size:70px;}' +
                     '.audio-mp3 .btnPaused{width:20px;height:20px;margin-top:3px;cursor:pointer;background-image:url(images/player.png);background-position:-12px 5px;background-repeat:no-repeat;background-size:70px;}' +
@@ -343,10 +340,6 @@
                     x = $(parent).attr('x'),
                     a = self.get('#my-audio');
 
-                //if($(parent).hasClass('on')) return Q.confirm('歌曲正在播放，您确定删除嘛?',function(yes){
-                //    if(!yes) return;
-                //})
-
                 music_data.splice(x, 1);
                 music_data_map = music_data.toObjectMap('id');
 
@@ -381,71 +374,23 @@
                 $(progress).width(volume+'%');
                 self.find('.volume-num',Abox).html(volume);  
                 return false;
-            }).on('click','.quiet',function(){
-                // var a = document.getElementById('my-audio');
-
-                // if(a.volume == 0){
-                //     a.volume = 1;
-                //     video_volume = 1;
-                //     this.className = "c m volume";
-                //     $(this).attr('title',LANG.volume)
-                // }
-                // return false;
             }).on('click','.progress-warp',function(e){
+
                 var clientX = e.clientX,//鼠标点击位置
+
                     volume = clientX - self.box.offsetLeft - this.parentNode.offsetLeft,
+
                     a = document.getElementById('my-audio');
-                    console.log(volume)
+
                 self.find('.volume-btn',Abox).width(volume+'px');
+
                 self.find('.volume-num',Abox).html(volume); 
+
                 a.volume = volume/100;
-                video_volume =  volume/100;     
-            }).on('click', '.add', function () {
-                if(!url) return;
-                var api = Q.api,
-                    sid = store.get('sid') || store.get('isid'),
-                    login_id = store.get('uid') || store.get('iuid'),
 
-                    urls = api.HOST_WEBAPI + url + (Q.isPhone(login_id) ? '&own=1' : '') + '&ext=' + encodeURIComponent(ext.join(','));
+                video_volume =  volume/100;  
 
-                var el = document.getElementById('my-audio');
-
-                $.ajax({
-                    url: urls,
-                    type: 'GET',
-                    data: { "sid": sid, "login_id": login_id },
-                    dataType: 'json',
-                    jsonp: "jsonpcallback",
-                    success: function (data) {
-                        if (data.ret <= 0) return Q.alert('数据加载失败');
-
-                        var data = data.data,
-                            music = data.files,
-                            mp3 = /^.+(.mp3|.ogg)$/gi;
-
-                        music.forEach(function (t, i) {
-                            t.url = api.HOST_WEBAPI + 'doc?item=view&docid=' + t.docid;
-                            if (!music_data_map[t.id]) music_data.push(t);
-                            music_data_map = music_data.toObjectMap('id')
-                        });
-
-                        self._draw({ data1: music_data, data2: music_data_map[$(el).attr('x')] });
-                    },
-                    error: function (data) {
-                        if (data.readyState == 4) return Q.alert('数据请求中包含一个错误');
-                    }
-                })
-                return false;
-            });
-
-            // document.oncontextmenu = function(){return false};
-            // document.onclick = function(){
-            //     var table = self.find('.audio-text',Abox);
-            //     if(table[0].className == "audio-text active"){
-            //         table.removeClass('active');
-            //         table.hide();
-            //     }
-            // }
+            })
         });
     }
 
